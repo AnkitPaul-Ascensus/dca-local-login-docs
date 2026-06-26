@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document preview</title>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <style>
+    body {
+      font-family: Segoe UI, Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      color: #323130;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 24px;
+      background: #fff;
+    }
+    .back { margin-bottom: 20px; }
+    .back a { color: #0078d4; text-decoration: none; font-weight: 600; }
+    .back a:hover { text-decoration: underline; }
+    #content h1, #content h2, #content h3 { color: #0078d4; }
+    #content h1 { border-bottom: 2px solid #edebe9; padding-bottom: 8px; }
+    #content h2 { border-bottom: 1px solid #edebe9; padding-bottom: 6px; margin-top: 28px; }
+    #content pre {
+      background: #f3f2f1;
+      border: 1px solid #edebe9;
+      padding: 12px;
+      overflow-x: auto;
+      font-size: 13px;
+    }
+    #content code {
+      background: #f3f2f1;
+      padding: 2px 5px;
+      border-radius: 3px;
+      font-size: 13px;
+    }
+    #content pre code { background: none; padding: 0; }
+    #content table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 16px 0;
+      font-size: 13px;
+    }
+    #content th, #content td {
+      border: 1px solid #edebe9;
+      padding: 8px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+    #content th { background: #faf9f8; }
+    #content ul, #content ol { padding-left: 24px; }
+    #content blockquote {
+      margin: 16px 0;
+      padding: 12px 16px;
+      background: #e8f4fd;
+      border-left: 4px solid #0078d4;
+    }
+    .error {
+      background: #fde7e9;
+      border-left: 4px solid #a4262c;
+      padding: 14px 16px;
+      color: #323130;
+    }
+  </style>
+</head>
+<body>
+  <p class="back"><a href="index.html">← Back to setup guide</a></p>
+  <div id="content">Loading…</div>
+  <script>
+    (function () {
+      var allowed = {
+        'DCA-Local-Login-Prerequisites.md': 'DCA Local Login — Prerequisites',
+        'DCA-Local-Full-Login-Setup.md': 'DCA Local Full Login Setup'
+      };
+      var params = new URLSearchParams(location.search);
+      var file = params.get('f');
+      var content = document.getElementById('content');
+
+      if (!file || !allowed[file]) {
+        content.innerHTML = '<div class="error"><strong>Invalid file.</strong> Use Preview links from the <a href="index.html">setup guide</a>.</div>';
+        return;
+      }
+
+      document.title = allowed[file];
+
+      fetch(file)
+        .then(function (response) {
+          if (!response.ok) throw new Error('not found');
+          return response.text();
+        })
+        .then(function (markdown) {
+          content.innerHTML = marked.parse(markdown);
+        })
+        .catch(function () {
+          content.innerHTML =
+            '<div class="error">' +
+            '<strong>Could not load preview.</strong><br><br>' +
+            'Preview needs a web server (GitHub Pages or local). Opening <code>.md</code> files directly from disk shows raw text.<br><br>' +
+            'After publishing to GitHub Pages, use Preview from the live site.<br>' +
+            'For local testing: <code>npx serve docs</code> from the repo folder, then open <code>http://localhost:3000</code>.' +
+            '</div>';
+        });
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DCA Local Participant Login Setup</title>
+</head>
+<body style="font-family: Segoe UI, Arial, sans-serif; font-size: 14px; line-height: 1.6; color: #323130; max-width: 900px; margin: 0 auto; padding: 24px;">
+
+  <table width="100%" cellpadding="14" cellspacing="0" style="background: #f3f2f1; border: 1px solid #edebe9; margin-bottom: 20px;">
+    <tr><td style="font-size: 14px;">
+      <strong>Setup guide</strong> — follow the steps below. Use downloads, troubleshooting, and the Cursor prompt on this page only.
+    </td></tr>
+  </table>
+
+  <h1 style="color: #0078d4; margin-bottom: 6px;">DCA Local Participant Login Setup</h1>
+  <p style="color: #605e5c; font-size: 16px; margin-top: 0;">
+    <strong>Goal:</strong> Login → password → OTP/MFA → SAML SSO → Dashboard<br>
+    <strong>Success URL:</strong> <code>http://dev.newportgroup.com/Participant/Dashboard</code> (use <strong>http</strong>, not https)
+  </p>
+
+  <table width="100%" cellpadding="14" cellspacing="0" style="background: #e8f4fd; border-left: 4px solid #0078d4; margin: 20px 0;">
+    <tr><td>
+      <strong>How to use this page</strong><br>
+      1. Follow the <a href="#setup" style="color: #0078d4;">setup steps</a> below (or download the prerequisites file for the full checklist).<br>
+      2. <a href="#verify" style="color: #0078d4;">Verify</a> the login flow works.<br>
+      3. Only if something fails → use the <a href="#cursor" style="color: #0078d4;">Cursor prompt</a> at the bottom to auto-diagnose and fix.
+    </td></tr>
+  </table>
+
+  <h2 style="color: #0078d4; border-bottom: 2px solid #edebe9; padding-bottom: 6px;">Downloads</h2>
+  <p style="color: #605e5c; margin-top: 0; font-size: 13px;"><strong>Preview</strong> opens a formatted view in your browser. <strong>Download</strong> saves the <code>.md</code> file to your computer.</p>
+  <table width="100%" border="1" cellpadding="10" cellspacing="0" style="border-collapse: collapse; border-color: #edebe9;">
+    <tr style="background: #faf9f8;"><th align="left">File</th><th align="left">When to use</th><th align="left">Preview</th><th align="left">Download</th></tr>
+    <tr>
+      <td><strong>DCA-Local-Login-Prerequisites.md</strong></td>
+      <td>Full before-you-start checklist + known issues table</td>
+      <td>
+        <a href="preview.html?f=DCA-Local-Login-Prerequisites.md" target="_blank" rel="noopener noreferrer">Preview</a>
+      </td>
+      <td>
+        <a href="DCA-Local-Login-Prerequisites.md" download="DCA-Local-Login-Prerequisites.md">Download</a>
+      </td>
+    </tr>
+    <tr>
+      <td><strong>DCA-Local-Full-Login-Setup.md</strong></td>
+      <td>Detailed troubleshooting for every error</td>
+      <td>
+        <a href="preview.html?f=DCA-Local-Full-Login-Setup.md" target="_blank" rel="noopener noreferrer">Preview</a>
+      </td>
+      <td>
+        <a href="DCA-Local-Full-Login-Setup.md" download="DCA-Local-Full-Login-Setup.md">Download</a>
+      </td>
+    </tr>
+  </table>
+
+  <h2 style="color: #0078d4; border-bottom: 2px solid #edebe9; padding-bottom: 6px;">What you are building</h2>
+  <p>Local DCA normally <strong>skips login</strong> via dev shortcuts. This setup turns those off and wires the full flow:</p>
+  <table width="100%" border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; border-color: #edebe9;">
+    <tr style="background: #faf9f8;"><th align="left">Step</th><th align="left">What happens</th></tr>
+    <tr><td>1</td><td>Visit DCA → redirect to Unified Login</td></tr>
+    <tr><td>2</td><td>Username / password</td></tr>
+    <tr><td>3</td><td>WCF services on <code>devsvcs.newportgroup.com</code></td></tr>
+    <tr><td>4</td><td>OTP / MFA (may use <code>/userprofile</code>)</td></tr>
+    <tr><td>5</td><td>SAML SSO → YARP → PDXWeb → <strong>Dashboard</strong></td></tr>
+  </table>
+
+  <h2 style="color: #0078d4; border-bottom: 2px solid #edebe9; padding-bottom: 6px;">Architecture</h2>
+  <pre style="background: #f3f2f1; padding: 14px; overflow-x: auto; font-size: 12px; line-height: 1.5; border: 1px solid #edebe9;">dev.newportgroup.com  (127.0.0.1)   ← browser entry
+├── /              → DCA.Yarp
+├── /login         → UnifiedLogin.FrontEnd.Mvc
+└── /userprofile   → EUM UserProfile.Mvc
+
+dev.pdxweb.com  (127.0.0.2)         ← YARP backend
+├── /              → PDXWeb
+└── /login, /app, /legacy, …
+
+devsvcs.newportgroup.com  (127.0.0.1)
+├── NGUnifiedLogin.WcfService
+├── EnterpriseUserManagement.WcfService + .Api
+└── SSOIntegration.WcfService</pre>
+
+  <h2 id="setup" style="color: #0078d4; border-bottom: 2px solid #edebe9; padding-bottom: 6px;">Setup steps (do these first)</h2>
+
+  <h3 style="color: #323130; margin-top: 20px;">Step 1 — Repos and Cursor</h3>
+  <ul>
+    <li>Clone as <strong>sibling folders</strong>: <code>DCA</code>, <code>UnifiedLogin</code>, <code>EnterpriseUserManagement</code>, <code>NewportDeveloperSetup</code></li>
+    <li>Open Cursor on the <strong>parent folder</strong> (not inside one repo)</li>
+    <li>Use <strong>Agent</strong> mode · Windows 10/11 + IIS</li>
+  </ul>
+
+  <h3 style="color: #323130;">Step 2 — One-time machine setup (Administrator)</h3>
+  <p>Run once if you never configured this machine:</p>
+  <pre style="background: #f3f2f1; padding: 12px; border: 1px solid #edebe9;">cd &lt;your-root&gt;\NewportDeveloperSetup\Scripts
+.\DeveloperMachineSetup.ps1</pre>
+  <p>Run at least: IIS config, Connection Strings, Public apps, Services, Host file entries, SSO certificate.</p>
+  <p>If <code>dev.pdxweb.com</code> apps return 503 (old IIS layout):</p>
+  <pre style="background: #f3f2f1; padding: 12px; border: 1px solid #edebe9;">cd &lt;your-root&gt;\DCA\.localSetup\Scripts
+.\Migrate-IIS-PdxwebYarp.ps1</pre>
+
+  <h3 style="color: #323130;">Step 3 — Hosts file</h3>
+  <table width="100%" border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; border-color: #edebe9;">
+    <tr style="background: #faf9f8;"><th align="left">Entry</th><th align="left">Required</th></tr>
+    <tr><td><code>127.0.0.1</code> → dev.newportgroup.com, devsvcs.newportgroup.com</td><td>Yes</td></tr>
+    <tr><td><code>127.0.0.2</code> → dev.pdxweb.com</td><td>Yes</td></tr>
+    <tr><td><code>127.0.0.1</code> → devsql</td><td><strong>No</strong> — breaks SQL</td></tr>
+  </table>
+
+  <h3 style="color: #323130;">Step 4 — VPN, SQL, and app pool password</h3>
+  <ul>
+    <li>Connect <strong>VPN</strong> if your team requires it (Redis + SQL)</li>
+    <li>Test SQL: <code>sqlcmd -S devsql -d EnterpriseUserManagement -E -Q "SELECT 1"</code> → must return <code>1</code></li>
+    <li>Run as Admin (very common 503 fix): <code>DCA\.localSetup\Scripts\ResetAppPoolCredentials.ps1</code></li>
+  </ul>
+
+  <h3 style="color: #323130;">Step 5 — Disable auto-logon and set local login URLs</h3>
+  <p>Edit <code>DCA\PDX\PDXWeb\DeveloperAppSettings.json</code>:</p>
+  <ul>
+    <li><code>_AutoLogonPersonId</code> — empty (not <code>AutoLogonPersonId</code>)</li>
+    <li><code>external-login-participant-url</code> → <code>http://dev.newportgroup.com/login/Participant</code></li>
+  </ul>
+
+  <h3 style="color: #323130;">Step 6 — Build projects</h3>
+  <ul>
+    <li><code>npm install</code> + <code>npm run build</code> in <code>UnifiedLogin\Source\UnifiedLogin.FrontEnd.Mvc</code></li>
+    <li><code>dotnet build</code>: DCA.Yarp, PDXWeb, EUM Api + WcfService, UL WcfService, SSOIntegration WcfService</li>
+  </ul>
+
+  <h3 style="color: #323130;">Step 7 — YARP and UnifiedLogin config</h3>
+  <ul>
+    <li><code>DCA\MFE\DCA.Yarp\web.config</code> → <code>hostingModel="OutOfProcess"</code></li>
+    <li>UnifiedLogin <code>DeveloperAppSettings.json</code> — keys must be inside <code>"AppSettings": { }</code> (not root level); include Redis connection string if sessions fail</li>
+  </ul>
+
+  <h3 style="color: #323130;">Step 8 — SSO certificate and EUM database</h3>
+  <ul>
+    <li>Install dev-local cert or run <code>SetupLocalDevelopmentCertificate.ps1</code> from NewportDeveloperSetup</li>
+    <li>On shared devsql, EUM rule 4: cert <strong>177</strong>, IssuerId <code>https://dev.newportgroup.com/login</code></li>
+  </ul>
+
+  <h3 style="color: #323130;">Step 9 — Permissions and recycle IIS</h3>
+  <ul>
+    <li>If 500.19: Admin <code>icacls</code> on Yarp + UnifiedLogin folders for IIS_IUSRS</li>
+    <li><code>iisreset /restart</code> and start app pools (DCA.Yarp, DCA, UnifiedLogin, devsvcs WCF pools)</li>
+  </ul>
+
+  <h2 id="verify" style="color: #0078d4; border-bottom: 2px solid #edebe9; padding-bottom: 6px;">Verify</h2>
+  <table width="100%" border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; border-color: #edebe9;">
+    <tr style="background: #faf9f8;"><th align="left">Check</th><th align="left">Expected</th></tr>
+    <tr><td><code>http://dev.newportgroup.com/login/participant</code></td><td>200 — login page</td></tr>
+    <tr><td><code>http://devsvcs.newportgroup.com/NGUnifiedLogin.WcfService/MainService.svc</code></td><td>Not 503</td></tr>
+    <tr><td>Full login test</td><td>OTP screen → dashboard<br>Captcha bypass: <code>?dc=0c4c30f07ec84f88ab6122605449cc41</code></td></tr>
+  </table>
+  <p><strong>Dev test user:</strong> ask your team (example: <code>Demo40001</code>).</p>
+
+  <h2 style="color: #0078d4; border-bottom: 2px solid #edebe9; padding-bottom: 6px;">Common issues (quick fix)</h2>
+  <p>If you hit a problem during setup, check here first. Full detail in the downloaded <strong>DCA-Local-Full-Login-Setup.md</strong>.</p>
+  <table width="100%" border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; border-color: #edebe9; font-size: 13px;">
+    <tr style="background: #faf9f8;"><th>Symptom</th><th>Usual cause</th><th>Quick fix</th></tr>
+    <tr><td>Skip straight to dashboard</td><td>Auto-logon on</td><td><code>_AutoLogonPersonId</code> in PDXWeb DeveloperAppSettings</td></tr>
+    <tr><td>Redirect to QA</td><td>QA URL in Web.config</td><td>Override external-login URL in DeveloperAppSettings</td></tr>
+    <tr><td>500.19</td><td>IIS folder permissions</td><td>Admin icacls on Yarp + UnifiedLogin</td></tr>
+    <tr><td>/login/Error</td><td>Frontend not built</td><td>npm run build in UnifiedLogin.FrontEnd.Mvc</td></tr>
+    <tr><td>503 login or devsvcs</td><td>App pool stopped / bad AD password</td><td>ResetAppPoolCredentials.ps1 + start pools</td></tr>
+    <tr><td>504 on login</td><td>YARP timeout + slow Redis</td><td>OutOfProcess; wait 15–20s first load</td></tr>
+    <tr><td>Error Encountered on login</td><td>Redis config wrong shape</td><td>UL keys under <code>"AppSettings": { }</code></td></tr>
+    <tr><td>Wrong credentials (valid pwd)</td><td>SQL unreachable or auth denied</td><td>VPN; Integrated Security on EUM Api/WCF</td></tr>
+    <tr><td>Error after OTP</td><td>Missing SSO cert</td><td>SetupLocalDevelopmentCertificate.ps1</td></tr>
+    <tr><td>?error=ssoFail</td><td>SAML issuer/cert mismatch</td><td>EUM rule 4: cert 177, dev issuer URL</td></tr>
+    <tr><td>500/503 after OTP</td><td>YARP not built / pool down</td><td>dotnet build DCA.Yarp + iisreset</td></tr>
+  </table>
+
+  <h2 style="color: #0078d4; border-bottom: 2px solid #edebe9; padding-bottom: 6px;">Helper scripts (from your repos)</h2>
+  <table width="100%" border="1" cellpadding="8" cellspacing="0" style="border-collapse: collapse; border-color: #edebe9;">
+    <tr style="background: #faf9f8;"><th align="left">Script</th><th align="left">Location</th><th align="left">When</th></tr>
+    <tr><td><code>DeveloperMachineSetup.ps1</code></td><td><code>NewportDeveloperSetup\Scripts</code></td><td>First-time machine setup</td></tr>
+    <tr><td><code>ResetAppPoolCredentials.ps1</code></td><td><code>DCA\.localSetup\Scripts</code></td><td>503 after iisreset or password change</td></tr>
+    <tr><td><code>Migrate-IIS-PdxwebYarp.ps1</code></td><td><code>DCA\.localSetup\Scripts</code></td><td>dev.pdxweb.com apps 503</td></tr>
+    <tr><td><code>SetupLocalDevelopmentCertificate.ps1</code></td><td><code>NewportDeveloperSetup\Scripts</code></td><td>SSO cert missing</td></tr>
+    <tr><td><code>Fix-LocalSsoCertAndRestart.ps1</code></td><td><code>NewportDeveloperSetup\Scripts</code></td><td>SSO / cert / EUM (if in clone)</td></tr>
+    <tr><td><code>Start-DcaYarp.ps1</code></td><td><code>NewportDeveloperSetup\Scripts</code></td><td>YARP 503 only (if in clone)</td></tr>
+  </table>
+
+  <h2 id="cursor" style="color: #0078d4; border-bottom: 2px solid #edebe9; padding-bottom: 6px;">Cursor prompt (only if setup steps above did not work)</h2>
+
+  <table width="100%" cellpadding="14" cellspacing="0" style="background: #fff4ce; border-left: 4px solid #ffb900; margin: 16px 0;">
+    <tr><td>
+      <strong>When to use this</strong><br>
+      Try the <a href="#setup" style="color: #323130;">setup steps</a> and <a href="#verify" style="color: #323130;">verify</a> first.<br>
+      Use the prompt below only if you are still stuck — Cursor will audit your machine, auto-fix what it can, and give you one Admin command block to run.
+    </td></tr>
+  </table>
+
+  <p><strong>How to run:</strong></p>
+  <ol>
+    <li>Open Cursor on your repo parent folder → <strong>Agent</strong> mode</li>
+    <li>Optional: download <em>DCA-Local-Full-Login-Setup.md</em> and <strong>@ attach</strong> in chat</li>
+    <li>Click <strong>Copy</strong> in the box below → paste into Cursor → reply <strong>go</strong></li>
+    <li>Run the <strong>ACTION REQUIRED</strong> Admin block Cursor prints → reply <strong>done</strong></li>
+  </ol>
+
+  <p><strong>Cursor prompt:</strong> <span id="dca-copy-status" style="color: #107c10; font-weight: 600;"></span></p>
+
+  <div style="background: #1e1e1e; border: 1px solid #323130; border-radius: 6px; overflow: hidden; margin-bottom: 16px;">
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background: #2d2d2d; border-bottom: 1px solid #444;">
+      <tr>
+        <td style="padding: 8px 12px; font-size: 12px; color: #9cdcfe; font-family: Consolas, monospace;">Cursor Agent prompt</td>
+        <td align="right" style="padding: 8px 12px;">
+          <button type="button" onclick="copyDcaPrompt()"
+            style="background: #0078d4; color: #fff; border: none; padding: 6px 14px; font-size: 12px; font-weight: 600; border-radius: 4px; cursor: pointer; font-family: Segoe UI, Arial, sans-serif;">
+            Copy
+          </button>
+        </td>
+      </tr>
+    </table>
+    <pre id="dca-prompt-text" style="margin: 0; color: #d4d4d4; padding: 16px; overflow-x: auto; font-size: 11px; white-space: pre-wrap; line-height: 1.45; font-family: Consolas, Courier New, monospace;">Set up my full DCA participant login flow locally:
+
+  Login → password → OTP/MFA → SAML SSO → Dashboard
+  Success: http://dev.newportgroup.com/Participant/Dashboard
+
+Team docs (from this guide — @ attach in Cursor or download from the Downloads table above):
+  DCA-Local-Full-Login-Setup.md
+  DCA-Local-Login-Prerequisites.md
+
+══════════════════════════════════════════════════════════════════
+HOW TO WORK (ONE-SHOT — KEEP IT SIMPLE FOR THE DEVELOPER)
+══════════════════════════════════════════════════════════════════
+
+GOAL: I paste this once. You audit, auto-fix everything you safely can,
+then give me ONE short "do this as Admin" list. Minimize back-and-forth.
+
+WORKSPACE: Discover my repo root — do NOT assume a fixed path.
+  Find siblings: DCA, UnifiedLogin, EnterpriseUserManagement, NewportDeveloperSetup
+  Examples: C:\AscensusGit, C:\Users\&lt;me&gt;\source\repos, D:\dev\ascensus
+  Set $DCA_ROOT, $UL_ROOT, $EUM_ROOT, $SETUP_ROOT and use them everywhere.
+
+MODE: Agent. Windows + IIS + PowerShell + dotnet + npm.
+
+FIRST MESSAGE TO ME:
+  "Reply **go** to start (audit + auto-fix). Reply **go safe** to audit only first.
+   SQL/EUM DB changes always need separate **yes sql** approval."
+
+After I reply **go** or **go safe**:
+  → Run full audit + fixes per rules below in one session.
+
+PERMISSIONS:
+  • Auto-run READ-ONLY: Test-Path, dir, curl GET, sqlcmd SELECT, appcmd list,
+    Get-WinEvent, reading logs/configs, Test-NetConnection
+  • AUTO-FIX without asking (config/build only — no IIS/SQL/admin):
+      - PDXWeb DeveloperAppSettings.json (_AutoLogonPersonId, external-login URLs)
+      - UnifiedLogin DeveloperAppSettings.json (Redis under "AppSettings" wrapper)
+      - DCA.Yarp web.config → OutOfProcess if InProcess
+      - YARP appsettings timeout increase if 504 risk (pdxweb cluster)
+      - dotnet build: DCA.Yarp, PDXWeb, EUM Api+WcfService, UL WcfService,
+        SSOIntegration.WcfService, UnifiedLogin.FrontEnd.Mvc (publish)
+      - npm install + npm run build in UnifiedLogin.FrontEnd.Mvc if wwwroot missing
+      - Kill orphan EUM/WCF processes blocking rebuild
+  • ASK before: SQL UPDATE/INSERT on shared devsql, git write, editing Web.config
+    (prefer DeveloperAppSettings overrides), changing production ConnectionStrings
+    on C:\ConnectionConfig unless I say yes
+  • NEVER run silently: iisreset, icacls, cert install, Migrate-IIS-PdxwebYarp,
+    SetupEumServices, ResetAppPoolCredentials, Fix-LocalSsoCertAndRestart
+    → Put these in ACTION REQUIRED box with exact paths
+
+SCRIPT LOCATIONS (search both):
+  $SETUP_ROOT\Scripts\           (Fix-LocalSsoCertAndRestart.ps1, Start-DcaYarp.ps1, …)
+  $DCA_ROOT\.localSetup\Scripts\ (Migrate-IIS-PdxwebYarp.ps1, ResetAppPoolCredentials.ps1, …)
+
+══════════════════════════════════════════════════════════════════
+FULL CHECKLIST (from team setups — check ALL)
+══════════════════════════════════════════════════════════════════
+
+HOSTS:
+  127.0.0.1 dev.newportgroup.com, devsvcs.newportgroup.com
+  127.0.0.2 dev.pdxweb.com
+  ⚠ FAIL if 127.0.0.1 devsql (breaks SQL) — tell me to remove it
+
+IIS — dev.newportgroup.com:
+  / → DCA.Yarp (pool DCA.Yarp)
+  /login → UnifiedLogin.FrontEnd.Mvc (pool UnifiedLogin)
+  /userprofile → EnterpriseUserManagement.UserProfile.Mvc (pool UnifiedLogin)
+
+IIS — dev.pdxweb.com:
+  / → PDXWeb (pool DCA)
+  /login, /userprofile, /app, /legacy, /reporting
+
+IIS — devsvcs.newportgroup.com:
+  NGUnifiedLogin.WcfService  → UnifiedLogin\Source\UnifiedLogin.WcfService
+  EnterpriseUserManagement.WcfService, EnterpriseUserManagement.Api
+  SSOIntegration.WcfService
+
+CONFIG:
+  PDXWeb: _AutoLogonPersonId (not AutoLogonPersonId), local external-login URLs
+  UL DeveloperAppSettings: keys inside "AppSettings": { } — NOT root level
+  UL Redis: Session.RedisConnectionString (match PDXWeb cluster if login crashes)
+  YARP: OutOfProcess + DCA.Yarp.exe exists
+
+BUILDS:
+  wwwroot\icon-sprite.svg, DCA.Yarp.exe, WCF bins, EUM runtimeconfig.json, PDXWeb bin
+
+SSO:
+  dev-local cert in LocalMachine\My (thumbprint F688…DCA1)
+  EUM EnterpriseSSOGenerationProcessingId=4: certs 177, IssuerId https://dev.newportgroup.com/login
+  (SELECT only unless I said **yes sql**)
+
+SQL (critical — login submit fails without this):
+  Test devsql, then ask me for correct server if timeout
+  Test: sqlcmd -S &lt;server&gt; -d EnterpriseUserManagement -E -Q "SELECT 1"
+  If EnterpriseWeb SQL auth fails but -E works → EUM Api/Wcf Development
+  appsettings should use Integrated Security for local dev
+  Do NOT blanket-replace all connection strings to an IP unless I provide it
+
+HTTP (use http:// only):
+  /login/participant → 200
+  /common/login/participant → 302 toward login (not Splash if auto-logon off)
+  devsvcs NGUnifiedLogin.WcfService/MainService.svc → not 503
+  SSOIntegration.WcfService → not 503
+
+APP POOLS:
+  If 503 + event log "identity is invalid" / pool disabled
+  → ACTION REQUIRED: ResetAppPoolCredentials.ps1 (very common)
+
+LOGS if login was attempted:
+  C:\ActivityLog\PdxWeb, UnifiedLogin — SSO/cert errors
+  Event log: Redis, missing exe, 500.31
+
+══════════════════════════════════════════════════════════════════
+AUTO-FIX PLAYBOOK (apply when **go**, not **go safe**)
+══════════════════════════════════════════════════════════════════
+
+1. Disable auto-logon + set local login URLs in PDXWeb DeveloperAppSettings.json
+2. Fix UL DeveloperAppSettings.json structure (AppSettings wrapper + Redis if needed)
+3. YARP web.config → OutOfProcess
+4. Build all projects listed above
+5. If dev.pdxweb 503 → include Migrate-IIS-PdxwebYarp.ps1 in ACTION REQUIRED
+6. If devsvcs 503 → include SetupEumServices.ps1 + SetupUnifiedLoginServices.ps1
+7. If SSO cert missing → SetupLocalDevelopmentCertificate.ps1 or Fix-LocalSsoCertAndRestart.ps1
+8. If EUM SSO rule wrong AND I said **yes sql** → UPDATE rule 4 (cert 177 + dev issuer)
+9. Always end ACTION REQUIRED with icacls + iisreset + pool start commands using MY paths
+
+══════════════════════════════════════════════════════════════════
+OUTPUT FORMAT (keep it short for the developer)
+══════════════════════════════════════════════════════════════════
+
+## 1. Paths found
+(table)
+
+## 2. Audit (PASS / FAIL)
+(compact table — only FAIL rows need detail)
+
+## 3. What I fixed automatically
+(bullet list)
+
+## 4. ACTION REQUIRED — run as Administrator (copy-paste block)
+ONE combined script block with discovered paths, e.g.:
+  - ResetAppPoolCredentials.ps1 (if pools use AD identity)
+  - icacls on Yarp, UnifiedLogin, UserProfile
+  - Migrate-IIS-PdxwebYarp.ps1 (if needed)
+  - SetupEumServices / SetupUnifiedLoginServices (if needed)
+  - Fix-LocalSsoCertAndRestart.ps1 or Start-DcaYarp.ps1 (if needed)
+  - iisreset /restart
+  - Start-WebAppPool for: DCA.Yarp, DCA, UnifiedLogin, NGUnifiedLogin.WcfService,
+    EnterpriseUserManagement.WcfService, SSOIntegration.WcfService, EUM.Api
+
+Tell me: "Reply **done** after running the Admin block."
+
+## 5. Verify (after I say done)
+Re-check HTTP table. If all pass:
+
+  Test login:
+  http://dev.newportgroup.com/login/participant?dc=0c4c30f07ec84f88ab6122605449cc41
+  → OTP → dashboard
+
+## 6. If I send a screenshot/error
+Map symptom → fix (no full re-audit unless needed):
+
+| Symptom | Fix |
+|---------|-----|
+| Dashboard skip login | _AutoLogonPersonId |
+| QA redirect | external-login-participant-url |
+| 500.19 | icacls |
+| /login/Error | npm run build |
+| 503 login/devsvcs | ResetAppPoolCredentials + start pools |
+| 504 login | YARP OutOfProcess + wait 20s; Redis/VPN |
+| Empty red banner | EUM SQL + AppSettings wrapper |
+| Wrong credentials (valid pwd) | SQL reachability + Integrated Security |
+| Error after OTP | SSO cert + EUM cert 177 |
+| ssoFail | EUM IssuerId dev + cert 177 |
+| 500/503 after OTP | Build YARP + iisreset |
+
+Begin by asking me to reply **go** or **go safe**. Do not change files until I reply.</pre>
+  </div>
+  <p style="font-size: 12px; color: #605e5c; margin-top: -8px;">If Copy does not work: click inside the box → <strong>Ctrl+A</strong> → <strong>Ctrl+C</strong></p>
+
+  <textarea id="dca-prompt-hidden" readonly aria-hidden="true" style="position: absolute; left: -9999px; width: 1px; height: 1px; opacity: 0;"></textarea>
+
+  <script>
+  (function() {
+    var pre = document.getElementById('dca-prompt-text');
+    var hidden = document.getElementById('dca-prompt-hidden');
+    if (pre && hidden) hidden.value = pre.textContent;
+  })();
+  function copyDcaPrompt() {
+    var text = document.getElementById('dca-prompt-text').textContent;
+    var status = document.getElementById('dca-copy-status');
+    var btn = document.querySelector('button[onclick="copyDcaPrompt()"]');
+    function ok() {
+      status.textContent = '✓ Copied — paste in Cursor Agent, then reply go';
+      if (btn) btn.textContent = 'Copied!';
+      setTimeout(function() {
+        status.textContent = '';
+        if (btn) btn.textContent = 'Copy';
+      }, 4000);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(ok).catch(fallback);
+    } else { fallback(); }
+    function fallback() {
+      var box = document.getElementById('dca-prompt-hidden');
+      box.value = text;
+      box.style.position = 'fixed';
+      box.style.left = '0';
+      box.style.top = '0';
+      box.style.width = '2px';
+      box.style.height = '2px';
+      box.focus();
+      box.select();
+      try {
+        document.execCommand('copy');
+        ok();
+      } catch (e) {
+        status.style.color = '#a4262c';
+        status.textContent = 'Select the box manually → Ctrl+C';
+      }
+      box.style.position = 'absolute';
+      box.style.left = '-9999px';
+    }
+  }
+  </script>
+
+  <p style="color: #605e5c; font-size: 12px; margin-top: 32px; border-top: 1px solid #edebe9; padding-top: 12px;">
+    DCA Local Login Setup · GitHub Pages · Last updated June 2026
+  </p>
+
+</body>
+</html>
