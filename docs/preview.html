@@ -65,8 +65,22 @@
   </style>
 </head>
 <body>
-  <p class="back"><a href="index.html">← Back to setup guide</a></p>
+  <p class="back"><a href="index.html" id="back-link">← Back to setup guide</a></p>
   <div id="content">Loading…</div>
+  <script>
+    (function () {
+      var backLink = document.getElementById('back-link');
+      if (backLink) {
+        backLink.addEventListener('click', function (e) {
+          if (window.opener && !window.opener.closed) {
+            e.preventDefault();
+            window.opener.focus();
+            window.close();
+          }
+        });
+      }
+    })();
+  </script>
   <script>
     (function () {
       var allowed = {
